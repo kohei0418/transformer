@@ -1,10 +1,8 @@
-
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from downloader import get_tokenizers
 from mask import create_masks
-from train import CustomSchedule
+from optimizer import CustomSchedule
 from transformer import Transformer
 
 tokenizers = get_tokenizers()
@@ -43,7 +41,7 @@ def evaluate(sentence: str, max_length=40):
     for i in range(max_length):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
 
-        predictions, attention_weights = transformer(inputs=(encoder_input, output, enc_padding_mask, combined_mask, dec_padding_mask))
+        predictions = transformer(inputs=(encoder_input, output, enc_padding_mask, combined_mask, dec_padding_mask))
         predictions = predictions[:, -1:, :]
         predicted_id = tf.argmax(predictions, axis=-1)
         output = tf.concat([output, predicted_id], axis=-1)
@@ -54,37 +52,7 @@ def evaluate(sentence: str, max_length=40):
     text = tokenizers.en.detokenize(output)[0]
     tokens = tokenizers.en.lookup(output)[0]
 
-    return text, tokens, attention_weights
-
-
-def plot_attention_head(input_tokens, translated_tokens, attention):
-    translated_tokens = translated_tokens[1:]
-
-    ax = plt.gca()
-    ax.matshow(attention)
-    ax.set_xticks(range(len(input_tokens)))
-    ax.set_yticks(range(len(translated_tokens)))
-
-    labels = [label.decode('utf-8') for label in input_tokens.numpy()]
-    ax.set_xticklabels(labels, rotation=90)
-
-    labels = [label.decode('utf-8') for label in translated_tokens.numpy()]
-    ax.set_yticklabels(labels)
-
-
-def plot_attention_weights(sentence, translated_tokens, attention_heads):
-    input_tokens = tf.convert_to_tensor([sentence])
-    input_tokens = tokenizers.pt.tokenize(input_tokens).to_tensor()
-    input_tokens = tokenizers.pt.lookup(input_tokens)[0]
-
-    fig = plt.figure(figsize=(16, 8))
-    for h, head in enumerate(attention_heads):
-        ax = fig.add_subplot(2, 4, h+1)
-        plot_attention_head(input_tokens, translated_tokens, head)
-        ax.set_xlabel(f'Head {h+1}')
-
-    plt.tight_layout()
-    plt.show()
+    return text, tokens
 
 
 if __name__ == '__main__':
@@ -94,5 +62,3 @@ if __name__ == '__main__':
     print(sentence)
     print(translated_text.numpy().decode('utf-8'))
     print(ground_truth)
-
-    plot_attention_weights(sentence, translated_tokens, attention_weights['dec4_block2'][0])

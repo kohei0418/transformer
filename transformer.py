@@ -236,19 +236,13 @@ class Decoder(tf.keras.layers.Layer):
         x, enc_output, look_ahead_mask, padding_mask = inputs
         training: bool = True if kwargs.get('training') else False
         seq_len = tf.shape(x)[1]
-        attention_weights = {}
 
         x = self.embedding(x)
         x *= tf.math.sqrt(tf.cast(self.d_model, dtype=tf.float32))
         x += self.pos_encoding[:, :seq_len, :]
         x = self.dropout(x, training=training)
 
-        for i in range(self.num_layers):
-            x, b1, b2 = self.dec_layers[i](inputs=(x, enc_output, look_ahead_mask, padding_mask), training=training)
-            attention_weights[f'dec{i+1}_block1'] = b1
-            attention_weights[f'dec{i+1}_block2'] = b2
-
-        return x, attention_weights
+        return x
 
     def get_config(self):
         return {
@@ -286,10 +280,10 @@ class Transformer(tf.keras.Model):
         x, target, enc_padding_mask, look_ahead_mask, dec_padding_mask = inputs
         training: bool = True if kwargs.get('training') else False
         enc_output = self.encoder(inputs=(x, enc_padding_mask), training=training)
-        dec_output, attention_weights = self.decoder(inputs=(target, enc_output, look_ahead_mask, dec_padding_mask), training=training)
+        dec_output, _ = self.decoder(inputs=(target, enc_output, look_ahead_mask, dec_padding_mask), training=training)
         final_output = self.dense(dec_output)
 
-        return final_output, attention_weights
+        return final_output
 
     def get_config(self):
         return {
