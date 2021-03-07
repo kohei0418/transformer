@@ -2,17 +2,12 @@
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+from downloader import get_tokenizers
 from mask import create_masks
-from transformer import Transformer, CustomSchedule
+from train import CustomSchedule
+from transformer import Transformer
 
-# prepare tokenizers
-model_name = "ted_hrlr_translate_pt_en_converter"
-tf.keras.utils.get_file(
-    f"{model_name}.zip",
-    f"https://storage.googleapis.com/download.tensorflow.org/models/{model_name}.zip",
-    cache_dir='.', cache_subdir='', extract=True
-)
-tokenizers = tf.saved_model.load(model_name)
+tokenizers = get_tokenizers()
 
 transformer = Transformer(
     num_layers=4,
@@ -21,8 +16,8 @@ transformer = Transformer(
     dff=512,
     input_vocab_size=tokenizers.pt.get_vocab_size(),
     target_vocab_size=tokenizers.en.get_vocab_size(),
-    pe_input=1000,
-    pe_target=1000,
+    input_max_len=1000,
+    target_max_len=1000,
     dropout_rate=0.1,
 )
 learning_rate = CustomSchedule(d_model=128)
@@ -48,7 +43,7 @@ def evaluate(sentence: str, max_length=40):
     for i in range(max_length):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
 
-        predictions, attention_weights = transformer(encoder_input, output, False, enc_padding_mask, combined_mask, dec_padding_mask)
+        predictions, attention_weights = transformer(inputs=(encoder_input, output, enc_padding_mask, combined_mask, dec_padding_mask))
         predictions = predictions[:, -1:, :]
         predicted_id = tf.argmax(predictions, axis=-1)
         output = tf.concat([output, predicted_id], axis=-1)

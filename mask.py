@@ -11,12 +11,12 @@ def create_look_ahead_mask(size: int) -> tf.Tensor:
     return mask
 
 
-def create_masks(input: tf.Tensor, target: tf.Tensor):
-    enc_padding_mask = create_padding_mask(input)
-    dec_padding_mask = create_padding_mask(input)
+def create_masks(x: tf.Tensor, y: tf.Tensor):
+    enc_padding_mask = create_padding_mask(x)
+    dec_padding_mask = create_padding_mask(x)
 
-    look_ahead_mask = create_look_ahead_mask(tf.shape(target)[1])
-    dec_target_padding_mask = create_padding_mask(target)
+    look_ahead_mask = create_look_ahead_mask(tf.shape(y)[1])
+    dec_target_padding_mask = create_padding_mask(y)
     combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
 
     return enc_padding_mask, combined_mask, dec_padding_mask
