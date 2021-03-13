@@ -62,12 +62,12 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         k = self._split_heads(k, batch_size)
         v = self._split_heads(v, batch_size)
 
-        scaled_attention, attention_weights = self._scaled_dot_product_attention(q, k, v, mask)
+        scaled_attention, _ = self._scaled_dot_product_attention(q, k, v, mask)
         scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])
         concat_attention = tf.reshape(scaled_attention, (batch_size, -1, self.d_model))
         output = self.dense(concat_attention)
 
-        return output, attention_weights
+        return output
 
     def get_config(self):
         return {
@@ -102,7 +102,7 @@ class EncoderLayer(tf.keras.layers.Layer):
     def call(self, inputs, **kwargs):
         x, mask = inputs
         training: bool = True if kwargs.get('training') else False
-        attention, _ = self.mha(inputs=(x, x, x, mask))
+        attention = self.mha(inputs=(x, x, x, mask))
         attention = self.dropout(attention, training=training)
         out1 = self.norm1(x + attention)
 
@@ -142,11 +142,11 @@ class DecoderLayer(tf.keras.layers.Layer):
     def call(self, inputs, **kwargs):
         x, enc_output, look_ahead_mask, padding_mask = inputs
         training: bool = True if kwargs.get('training') else False
-        attention1, attention_weights1 = self.mha1(inputs=(x, x, x, look_ahead_mask))
+        attention1 = self.mha1(inputs=(x, x, x, look_ahead_mask))
         attention1 = self.dropout(attention1, training=training)
         out1 = self.norm1(attention1 + x)
 
-        attention2, attention_weights2 = self.mha2(inputs=(out1, enc_output, enc_output, padding_mask))
+        attention2 = self.mha2(inputs=(out1, enc_output, enc_output, padding_mask))
         attention2 = self.dropout(attention2, training=training)
         out2 = self.norm2(attention2 + out1)
 
@@ -154,7 +154,7 @@ class DecoderLayer(tf.keras.layers.Layer):
         ffn_out = self.dropout(ffn_out, training=training)
         out3 = self.norm3(ffn_out + out2)
 
-        return out3, attention_weights1, attention_weights2
+        return out3
 
     def get_config(self):
         return {
@@ -242,6 +242,9 @@ class Decoder(tf.keras.layers.Layer):
         x += self.pos_encoding[:, :seq_len, :]
         x = self.dropout(x, training=training)
 
+        for i in range(self.num_layers):
+            x = self.dec_layers[i](inputs=(x, enc_output, look_ahead_mask, padding_mask), training=training)
+
         return x
 
     def get_config(self):
@@ -280,7 +283,7 @@ class Transformer(tf.keras.Model):
         x, target, enc_padding_mask, look_ahead_mask, dec_padding_mask = inputs
         training: bool = True if kwargs.get('training') else False
         enc_output = self.encoder(inputs=(x, enc_padding_mask), training=training)
-        dec_output, _ = self.decoder(inputs=(target, enc_output, look_ahead_mask, dec_padding_mask), training=training)
+        dec_output = self.decoder(inputs=(target, enc_output, look_ahead_mask, dec_padding_mask), training=training)
         final_output = self.dense(dec_output)
 
         return final_output
