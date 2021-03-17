@@ -16,7 +16,7 @@ def positional_encoding(position: int, d_model: int) -> tf.Tensor:
     angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
     pos_encoding = angle_rads[np.newaxis, ...]
 
-    return tf.cast(pos_encoding, dtype=tf.float32)
+    return tf.constant(pos_encoding, dtype=tf.float32)
 
 
 class MultiHeadAttention(tf.keras.layers.Layer):
@@ -104,7 +104,7 @@ class EncoderLayer(tf.keras.layers.Layer):
         training: bool = True if kwargs.get('training') else False
         attention = self.mha(inputs=(x, x, x, mask))
         attention = self.dropout(attention, training=training)
-        out1 = self.norm1(x + attention)
+        out1 = self.norm1(tf.cast(x, tf.float32) + attention)
 
         ffn_out = self.ffn(out1)
         ffn_out = self.dropout(ffn_out, training=training)
@@ -144,7 +144,7 @@ class DecoderLayer(tf.keras.layers.Layer):
         training: bool = True if kwargs.get('training') else False
         attention1 = self.mha1(inputs=(x, x, x, look_ahead_mask))
         attention1 = self.dropout(attention1, training=training)
-        out1 = self.norm1(attention1 + x)
+        out1 = self.norm1(tf.cast(x, tf.float32) + attention1)
 
         attention2 = self.mha2(inputs=(out1, enc_output, enc_output, padding_mask))
         attention2 = self.dropout(attention2, training=training)

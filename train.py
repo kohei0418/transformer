@@ -3,6 +3,8 @@ import logging
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+from tensorflow.python.keras import Input
+from tensorflow.python.keras.models import Model
 
 from downloader import get_tokenizers
 from mask import create_masks
@@ -39,28 +41,32 @@ def main():
     dff = 512
     dropout_rate = 0.1
 
-    transformer = Transformer(
+    learning_rate = CustomSchedule(d_model)
+    optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+
+    source = Input(shape=[None], dtype=tf.int64)
+    target = Input(shape=[None], dtype=tf.int64)
+    source_pad_mask = Input(shape=[1, 1, None], dtype=tf.float32)
+    look_ahead_mask = Input(shape=[1, None, None], dtype=tf.float32)
+    target_pad_mask = Input(shape=[1, 1, None], dtype=tf.float32)
+    inputs = [source, target, source_pad_mask, look_ahead_mask, target_pad_mask]
+
+    transformer_out = Transformer(
         num_layers=num_layers,
         d_model=d_model,
         num_heads=num_heads,
         dff=dff,
-        input_vocab_size=tokenizers.pt.get_vocab_size(),
-        target_vocab_size=tokenizers.en.get_vocab_size(),
+        input_vocab_size=tokenizers.pt.get_vocab_size().numpy(),
+        target_vocab_size=tokenizers.en.get_vocab_size().numpy(),
         input_max_len=1000,
         target_max_len=1000,
         dropout_rate=dropout_rate,
-    )
-
-    learning_rate = CustomSchedule(d_model)
-    optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-
-    input_shape = (None, None)
-    pad_mask_shape = (None, 1, 1, None)
-    transformer.build(input_shape=[input_shape, input_shape, pad_mask_shape, (None, 1, None, None), pad_mask_shape])
+    )(inputs)
+    transformer = Model(inputs=inputs, outputs=transformer_out)
     transformer.compile(
         optimizer=optimizer,
         loss=masked_sparse_categorical_crossentropy,
-        metrics=[masked_accuracy]
+        metrics=[masked_accuracy],
     )
     print(transformer.summary())
 
