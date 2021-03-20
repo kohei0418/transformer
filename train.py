@@ -7,7 +7,6 @@ from tensorflow.python.keras import Input
 from tensorflow.python.keras.models import Model
 
 from downloader import get_tokenizers
-from mask import create_masks
 from optimizer import CustomSchedule, masked_accuracy, masked_sparse_categorical_crossentropy
 from transformer import Transformer
 
@@ -26,8 +25,7 @@ def main():
         en: tf.Tensor = tokenizers.en.tokenize(en).to_tensor()
         target_input = en[:, :-1]
         target_real = en[:, 1:]
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(pt, target_input)
-        return (pt, target_input, enc_padding_mask, combined_mask, dec_padding_mask), target_real
+        return (pt, target_input), target_real
 
     def make_batches(ds: tf.data.Dataset) -> tf.data.Dataset:
         return ds.cache().shuffle(20_000).batch(64).map(tokenize_and_create_masks, tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
@@ -44,12 +42,9 @@ def main():
     learning_rate = CustomSchedule(d_model)
     optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
-    source = Input(shape=[None], dtype=tf.int64)
-    target = Input(shape=[None], dtype=tf.int64)
-    source_pad_mask = Input(shape=[1, 1, None], dtype=tf.float32)
-    look_ahead_mask = Input(shape=[1, None, None], dtype=tf.float32)
-    target_pad_mask = Input(shape=[1, 1, None], dtype=tf.float32)
-    inputs = [source, target, source_pad_mask, look_ahead_mask, target_pad_mask]
+    source = Input(shape=[None], dtype=tf.int64, name='source')
+    target = Input(shape=[None], dtype=tf.int64, name='target')
+    inputs = [source, target]
 
     transformer_out = Transformer(
         num_layers=num_layers,

@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import tensorflow as tf
 
+from mask import create_masks
+
 logging.getLogger('tensorflow').setLevel(logging.ERROR)  # suppress warnings
 
 
@@ -280,10 +282,11 @@ class Transformer(tf.keras.Model):
         self.dense = tf.keras.layers.Dense(target_vocab_size)
 
     def call(self, inputs, **kwargs):
-        x, target, enc_padding_mask, look_ahead_mask, dec_padding_mask = inputs
+        source, target = inputs
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(source, target)
         training: bool = True if kwargs.get('training') else False
-        enc_output = self.encoder(inputs=(x, enc_padding_mask), training=training)
-        dec_output = self.decoder(inputs=(target, enc_output, look_ahead_mask, dec_padding_mask), training=training)
+        enc_output = self.encoder(inputs=(source, enc_padding_mask), training=training)
+        dec_output = self.decoder(inputs=(target, enc_output, combined_mask, dec_padding_mask), training=training)
         final_output = self.dense(dec_output)
 
         return final_output
