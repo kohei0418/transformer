@@ -2,36 +2,20 @@
 import logging
 
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from tensorflow.python.keras import Input
 from tensorflow.python.keras.models import Model
 
-from downloader import get_tokenizers
+from dataset import preprocess_dataset
 from optimizer import CustomSchedule, masked_accuracy, masked_sparse_categorical_crossentropy
+from tokenizers import get_vocab_sizes
 from transformer import Transformer
 
 logging.getLogger('tensorflow').setLevel(logging.ERROR)  # suppress warnings
 
 
 def main():
-    examples, metadata = tfds.load('ted_hrlr_translate/pt_to_en', with_info=True,
-                                   as_supervised=True)
-    train_examples, val_examples = examples['train'], examples['validation']
-
-    tokenizers = get_tokenizers()
-
-    def tokenize_and_create_masks(pt: tf.Tensor, en: tf.Tensor):
-        pt: tf.Tensor = tokenizers.pt.tokenize(pt).to_tensor()
-        en: tf.Tensor = tokenizers.en.tokenize(en).to_tensor()
-        target_input = en[:, :-1]
-        target_real = en[:, 1:]
-        return (pt, target_input), target_real
-
-    def make_batches(ds: tf.data.Dataset) -> tf.data.Dataset:
-        return ds.cache().shuffle(20_000).batch(64).map(tokenize_and_create_masks, tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-
-    train_batches = make_batches(train_examples)
-    val_batches = make_batches(val_examples)
+    train_batches, val_batches = preprocess_dataset()
+    input_vocab_size, target_vocab_size = get_vocab_sizes()
 
     d_model = 128
     num_layers = 4
@@ -51,8 +35,8 @@ def main():
         d_model=d_model,
         num_heads=num_heads,
         dff=dff,
-        input_vocab_size=tokenizers.pt.get_vocab_size().numpy(),
-        target_vocab_size=tokenizers.en.get_vocab_size().numpy(),
+        input_vocab_size=input_vocab_size,
+        target_vocab_size=target_vocab_size,
         input_max_len=1000,
         target_max_len=1000,
         dropout_rate=dropout_rate,

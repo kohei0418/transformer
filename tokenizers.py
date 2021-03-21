@@ -2,7 +2,7 @@
 import tensorflow as tf
 
 
-def get_tokenizers():
+def get():
     import tensorflow_text as text
     model_name = "ted_hrlr_translate_pt_en_converter"
     tf.keras.utils.get_file(
@@ -11,3 +11,8 @@ def get_tokenizers():
         cache_dir='.', cache_subdir='', extract=True
     )
     return tf.saved_model.load(model_name)
+
+
+def get_vocab_sizes():
+    tokenizers = get()
+    return tokenizers.pt.get_vocab_size().numpy(), tokenizers.en.get_vocab_size().numpy()

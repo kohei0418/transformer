@@ -1,8 +1,8 @@
 import tensorflow as tf
 
-from downloader import get_tokenizers
+from tokenizers import get
 
-tokenizers = get_tokenizers()
+tokenizers = get()
 saved_model = tf.saved_model.load('pt2en.tf')
 transformer = saved_model.signatures['serving_default']
 
